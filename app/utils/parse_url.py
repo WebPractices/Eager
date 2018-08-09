@@ -5,16 +5,17 @@ import requests
 from requests.exceptions import ConnectionError
 
 
-def parse_url(url, params):
+def parse_url(url, code='utf-8',params=None):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'
     }
-    if params:
+    if params and isinstance(params, dict):
         for k, v in params.items():
             headers[k] = v
     try:
         resp = requests.get(url, headers=headers)
         if resp.status_code == 200:
+            resp.encoding = code
             return resp.text
         return None
     except ConnectionError:
