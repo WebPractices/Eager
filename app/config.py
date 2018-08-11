@@ -1,11 +1,9 @@
 """ Global Flask Application Settings """
-
 import os
-from app import app
 
 
 class Config(object):
-    DEBUG = False
+    DEBUG = True
     TESTING = False
     BASE_DIR = os.path.dirname(__file__)
     CLIENT_DIR = os.path.join(BASE_DIR, 'client', 'vue_app')
@@ -29,4 +27,3 @@ class Production(Config):
 
 # Set `FLASK_CONFIG` env to 'Production' or 'Development' to set Config
 flask_config = os.getenv('FLASK_CONFIG') or 'Development'
-app.config.from_object('app.config.{}'.format(flask_config))

@@ -1,12 +1,18 @@
 from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 
 
-from app.api import api_bp
-from app.client import client_bp
+# db = SQLAlchemy()
 
-app = Flask(__name__)
-app.register_blueprint(api_bp)
-app.register_blueprint(client_bp)
+def create_app(flask_config):
+    app = Flask(__name__)
+    app.config.from_object('app.config.{}'.format(flask_config))
+    # db.init_app(app)
 
-from . import config
-app.logger.info('>>> {}'.format(config.flask_config))
+    from app.api import api_bp
+    from app.client import client_bp
+    app.register_blueprint(api_bp)
+    app.register_blueprint(client_bp)
+
+    app.logger.info('>>> {}'.format(flask_config))
+    return app
