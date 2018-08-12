@@ -8,6 +8,12 @@ class Config(object):
     BASE_DIR = os.path.dirname(__file__)
     CLIENT_DIR = os.path.join(BASE_DIR, 'client', 'vue_app')
 
+    MONGO_DB = 'eager'
+    NOVEL_TABLE = 'novel'
+    CHAPTER_TABLE = 'chapter'
+    HOST = 'localhost'
+    PORT = 27017
+
     if not os.path.exists(CLIENT_DIR):
         raise Exception(
             'Client App directory not found: {}'.format(CLIENT_DIR))

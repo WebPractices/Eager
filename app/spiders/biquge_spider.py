@@ -3,6 +3,9 @@ from datetime import datetime
 
 from lxml import etree
 from app.utils.parse_url import parse_url
+from app.database import MongodbClient
+
+
 
 
 class CrawlBiquge(object):
@@ -15,6 +18,7 @@ class CrawlBiquge(object):
         self._base_url = 'http://www.biquge.com.tw'
         self.novel = {}
         self._novel_html = None
+        self.crawl_time = datetime.now()
         self._state_xpath = '//*[@id="info"]/p[3]/text()'
         self.novel['source'] = self._base_url
 
@@ -22,13 +26,13 @@ class CrawlBiquge(object):
         """get novels state, judge this novel is finished or unfinished"""
         spt = list(map(int, update_info[5:].split('-')))
         update_time = datetime(spt[0], spt[1], spt[2])
-        crawl_time = datetime.now()
-        interval_days = (crawl_time - update_time).days
-        self.novel['state'] = '更新中' if interval_days < 7 else '完结'
+        interval_days = (self.crawl_time - update_time).days
+        state = '更新中' if interval_days < 7 else '完结'
+        return state
 
     def get_url(self, category):
         """crawler all novels url according to category"""
-        self.novel['category'] = category
+        # self.novel['category'] = category
         url = self._biquge.format(category=category)
         res = parse_url(url, 'gbk')
         html = etree.HTML(res)
@@ -43,7 +47,7 @@ class CrawlBiquge(object):
         authors.extend(authors_r)
         for url, name, author in zip(urls, names, authors):
             novel = {
-                'url': url,
+                'source_url': url,
                 'name': name,
                 'author': author
             }
@@ -54,18 +58,24 @@ class CrawlBiquge(object):
         res = parse_url(novel_url, 'gbk')
         html = etree.HTML(res)
         self._novel_html = html
-        image = html.xpath('//*[@id="fmimg"]/img/@src')
-        intro = html.xpath('//*[@id="intro"]/p/text()')
-        self.novel['image'] = image
-        self.novel['intro'] = intro
+        # http://www.biquge.com.tw/files/article/image/17/17506/17506s.jpg
+        image = html.xpath('//*[@id="fmimg"]/img/@src')[0]
+        intro = html.xpath('//*[@id="intro"]/p/text()')[0]
+        # self.novel['image'] = image
+        # self.novel['intro'] = intro
         # get update time
         update_info = html.xpath(self._state_xpath)[0]
-        self._novel_state(update_info)
-        return self.novel
+        state = self._novel_state(update_info)
+        info = {
+            'image': self._base_url + image,
+            'intro': intro,
+            'state': state
+        }
+        return info
 
     def get_menu(self, name=None, url=None):
         """crawling novel menu"""
-        if not self._novel_html:
+        if self._novel_html is not None:
             if name and url:
                 self.get_info(name, url)
             else:
@@ -74,7 +84,7 @@ class CrawlBiquge(object):
         chapter_title = self._novel_html.xpath('//*[@id="list"]/dl/dd/a/text()')
         for url, title in zip(chapter_url, chapter_title):
             chapter = {
-                'url': self._base_url + url,
+                'source_url': self._base_url + url,
                 'title': title
             }
             yield chapter
@@ -90,17 +100,25 @@ class CrawlBiquge(object):
         pass
 
 if __name__ == '__main__':
+    import time
+    db = MongodbClient('novel', 'localhost', 27017)
     crawler = CrawlBiquge()
-    d = {'name': '三寸人间', 'author': '耳根', 'url': 'http://www.biquge.com.tw/14_14055/'}
-    num = 0
-    for i in crawler.get_menu(d['name'], d['url']):
-        num += 1
-        i['num'] = num
-        print(i)
-    print(crawler.novel)
-    # novel = next(crawler.get_info('xuanhuan'))
-    # print(novel)
-    # chapter = next(crawler.get_menu(novel['name'], novel['url']))
-    # print(chapter)
-    # content = crawler.get_chapter(chapter['url'])
-    # print(content)
+    cates = ['xuanhuan', 'xiuzhen', 'dushi', 'lishi', 'wangyou', 'kehuan', 'kongbu']
+    for category in cates:
+        for novel in crawler.get_url(category):
+            novel['category'] = category
+            info = crawler.get_info(novel['name'], novel['source_url'])
+            data = dict(novel, **info)
+            print(data)
+            db.put(data)
+            for c in crawler.get_menu(novel['name'], novel['source_url']):
+                time.sleep(1)
+                content = crawler.get_chapter(c['source_url'])
+                c['content'] = content
+                c['novel'] = novel['name']
+                c['author'] = novel['author']
+                print(c)
+                db.change_table('chapter')
+                db.put(c)
+
+
