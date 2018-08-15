@@ -16,6 +16,7 @@ class CrawlBiquge(object):
         self._base_url = 'http://www.biquge.com.tw'
         self._novel_html = None
         self.crawl_time = datetime.now()
+        self._params = {'Cookie': '__cdnuid=90921b0dc2a86a57c01f43334eeef3ce; __cdn_clearance=1534338582.899|0|bqEUCHPkqErOJh7o4V5vAS2HLlU%3D'}
 
     def _novel_state(self, update_info):
         """get novels state, judge this novel is finished or unfinished"""
@@ -28,7 +29,7 @@ class CrawlBiquge(object):
     def get_url(self, category):
         """crawler all novels url according to category"""
         url = self._biquge.format(category=category)
-        res = parse_url(url, 'gbk')
+        res = parse_url(url, 'gbk', params=self._params)
         html = etree.HTML(res)
         urls = html.xpath('//*[@id="newscontent"]/div[@class="l"]/ul/li/span[1]/a/@href')
         urls_r = html.xpath('//*[@id="newscontent"]/div[@class="r"]/ul/li/span[1]/a/@href')
@@ -49,7 +50,7 @@ class CrawlBiquge(object):
 
     def get_info(self, novel_url):
         """crawler novel info"""
-        res = parse_url(novel_url, 'gbk')
+        res = parse_url(novel_url, 'gbk', params=self._params)
         html = etree.HTML(res)
         self._novel_html = html
         image = html.xpath('//*[@id="fmimg"]/img/@src')[0]
@@ -67,7 +68,7 @@ class CrawlBiquge(object):
         """crawling novel menu"""
         if self._novel_html is not None:
             if url:
-                res = parse_url(url, 'gbk')
+                res = parse_url(url, 'gbk', params=self._params)
                 self._novel_html = etree.HTML(res)
             else: return False
         chapter_url = self._novel_html.xpath('//*[@id="list"]/dl/dd/a/@href')
@@ -81,7 +82,7 @@ class CrawlBiquge(object):
 
     def get_chapter(self, chapter_url):
         """crawler chapter content"""
-        res = parse_url(chapter_url, 'gbk')
+        res = parse_url(chapter_url, 'gbk', params=self._params)
         html = etree.HTML(res)
         content = html.xpath('//*[@id="content"]/text()')
         return ''.join(content)
@@ -100,17 +101,24 @@ if __name__ == '__main__':
             novel['category'] = category
             info = crawler.get_info(novel['source_url'])
             data = dict(novel, **info)
-            print(data)
+            print('success novel: ', data['source_url'])
             db.put(data)
             db.change_table('chapter')
             for c in crawler.get_menu(novel['source_url']):
+                if db.exists({'novel': novel['name'], 'title': c['title']}):
+                    continue
                 time.sleep(1)
-                content = crawler.get_chapter(c['source_url'])
-                c['content'] = content
-                c['novel'] = novel['name']
-                c['author'] = novel['author']
-                print(c)
-                db.put(c)
+                try:
+                    content = crawler.get_chapter(c['source_url'])
+                    c['content'] = content
+                    c['novel'] = novel['name']
+                    c['author'] = novel['author']
+                    print('success chapter: ', c['source_url'])
+                    db.put(c)
+                except:
+                    db.change_table('errors')
+                    db.put(c)
+                    db.change_table('chapter')
 
 
 

@@ -10,8 +10,7 @@ def parse_url(url, code='utf-8',params=None):
         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'
     }
     if params and isinstance(params, dict):
-        for k, v in params.items():
-            headers[k] = v
+        headers= dict(params, **headers)
     try:
         resp = requests.get(url, headers=headers)
         if resp.status_code == 200:

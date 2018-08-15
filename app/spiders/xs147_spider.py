@@ -17,6 +17,7 @@ class CrawlXs147(object):
         self._xs147 = 'http://www.147xs.com/sort/{category}/'
         self._novel_html = None
         self.crawl_time = datetime.now()
+        self._params = {'Cookie': 'bdshare_firstime=1534250751693; Hm_lvt_f9e74ced1e1a12f9e31d3af8376b6d63=1534250752,1534339609; Hm_lpvt_f9e74ced1e1a12f9e31d3af8376b6d63=1534340938'}
 
     def _novel_state(self, update_info):
         """get novels state, judge this novel is finished or unfinished"""
@@ -29,7 +30,7 @@ class CrawlXs147(object):
     def get_url(self, category):
         """crawler all novels url according to category"""
         url = self._xs147.format(category=category)
-        res = parse_url(url, 'utf-8')
+        res = parse_url(url, 'utf-8', params=self._params)
         html = etree.HTML(res)
         urls = html.xpath('//*[@id="main"]/div[@class="novelslist"]/div[1]/ul/li/a/@href')
         names = html.xpath('//*[@id="main"]/div[@class="novelslist"]/div[1]/ul/li/a/text()')
@@ -44,7 +45,7 @@ class CrawlXs147(object):
 
     def get_info(self, novel_url):
         """crawler novel info"""
-        res = parse_url(novel_url, 'utf-8')
+        res = parse_url(novel_url, 'utf-8', params=self._params)
         html = etree.HTML(res)
         self._novel_html = html
         image = html.xpath('//*[@id="fmimg"]/a/img/@src')[0]
@@ -63,7 +64,7 @@ class CrawlXs147(object):
         """crawling novel menu"""
         if self._novel_html is None:
             if url:
-                res = parse_url(url, 'utf-8')
+                res = parse_url(url, 'utf-8', params=self._params)
                 self._novel_html = etree.HTML(res)
             else: return False
         chapter_url = self._novel_html.xpath('//*[@id="list"]/dd/a/@href')
@@ -77,7 +78,7 @@ class CrawlXs147(object):
 
     def get_chapter(self, chapter_url):
         """crawler chapter content"""
-        res = parse_url(chapter_url, 'utf-8')
+        res = parse_url(chapter_url, 'utf-8', params=self._params)
         html = etree.HTML(res)
         content = html.xpath('//*[@id="content"]/p/text()')
         return '\n'.join(content)
@@ -113,11 +114,19 @@ if __name__ == '__main__':
             db.put(data)
             db.change_table('chapter')
             for c in crawler.get_menu(novel['source_url']):
+                if db.exists({'novel': novel['name'], 'title': c['title']}):
+                    print('exists')
+                    continue
                 time.sleep(1)
-                content = crawler.get_chapter(c['source_url'])
-                c['content'] = content
-                c['novel'] = novel['name']
-                c['author'] = novel['author']
-                print('success chapter: ', c['source_url'])
-                db.put(c)
+                try:
+                    content = crawler.get_chapter(c['source_url'])
+                    c['content'] = content
+                    c['novel'] = novel['name']
+                    c['author'] = novel['author']
+                    print('success chapter: ', c['source_url'])
+                    db.put(c)
+                except:
+                    db.change_table('errors')
+                    db.put(c)
+                    db.change_table('chapter')
 

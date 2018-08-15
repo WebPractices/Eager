@@ -49,7 +49,7 @@ class MongodbClient(object):
             if self.db[self.table].find_one(
                     {'name': data['name'], 'author': data['author']}):
                 return True
-        else:
+        elif self.table == 'chapter':
             if self.db[self.table].find_one(
                     {'novel': data['novel'], 'title': data['title']}):
                 return True
