@@ -16,7 +16,7 @@ class MongodbClient(object):
         return data if data != None else None
 
     def put(self, data):
-        if self.exists(data):
+        if self.exists(data) is not None:
             return None
         count = self.get_nums
         data['num'] = count + 1
@@ -46,14 +46,10 @@ class MongodbClient(object):
 
     def exists(self, data):
         if self.table == 'novel':
-            if self.db[self.table].find_one(
-                    {'name': data['name'], 'author': data['author']}):
-                return True
-        elif self.table == 'chapter':
-            if self.db[self.table].find_one(
-                    {'novel': data['novel'], 'title': data['title']}):
-                return True
-        return False
+            novel = self.db[self.table].find_one(
+                    {'name': data['name'], 'author': data['author']})
+            return novel
+        return None
 
     @property
     def get_nums(self):

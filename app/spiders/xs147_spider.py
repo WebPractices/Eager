@@ -67,8 +67,8 @@ class CrawlXs147(object):
                 res = parse_url(url, 'utf-8', params=self._params)
                 self._novel_html = etree.HTML(res)
             else: return False
-        chapter_url = self._novel_html.xpath('//*[@id="list"]/dd/a/@href')
-        chapter_title = self._novel_html.xpath('//*[@id="list"]/dd/a/text()')
+        chapter_url = self._novel_html.xpath('//*[@id="list"]/dd/a/@href')[9:]
+        chapter_title = self._novel_html.xpath('//*[@id="list"]/dd/a/text()')[9:]
         for url, title in zip(chapter_url, chapter_title):
             chapter = {
                 'source_url': self._base_url + url,
@@ -111,22 +111,13 @@ if __name__ == '__main__':
             info = crawler.get_info(novel['source_url'])
             data = dict(novel, **info)
             print('success novel: ', data['source_url'])
-            db.put(data)
-            db.change_table('chapter')
             for c in crawler.get_menu(novel['source_url']):
-                if db.exists({'novel': novel['name'], 'title': c['title']}):
+                exists_novel = db.exists({'name': data['name'], 'author': data['author']})
+                if exists_novel and c in exists_novel.get('chapters', []):
                     print('exists')
                     continue
-                time.sleep(1)
-                try:
-                    content = crawler.get_chapter(c['source_url'])
-                    c['content'] = content
-                    c['novel'] = novel['name']
-                    c['author'] = novel['author']
-                    print('success chapter: ', c['source_url'])
-                    db.put(c)
-                except:
-                    db.change_table('errors')
-                    db.put(c)
-                    db.change_table('chapter')
+                novel.setdefault('chapters', []).append(c)
+                print('success chapter: ', c['source_url'])
+            db.put(novel)
+            time.sleep(1)
 
